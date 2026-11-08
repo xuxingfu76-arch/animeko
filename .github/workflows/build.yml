@@ -4,26 +4,10 @@
 
 name: 'Build'
 on:
-  push:
-    branches:
-    - 'main'
-    - 'release/**'
-    paths-ignore:
-    - '**/*.md'
-    - '.idea/**'
-    - '.junie/**'
-    - '.readme/**'
-    - '.run/**'
-    - 'scripts/*'
-  pull_request:
-    paths-ignore:
-    - '**/*.md'
-    - '.idea/**'
-    - '.junie/**'
-    - '.readme/**'
-    - '.run/**'
-    - 'scripts/*'
+  # fork: 上游的全平台构建 (12 个 job) 只在需要时手动运行,
+  # 否则每次推送都会重复触发并把在跑的构建取消掉.
   workflow_dispatch: {}
+
 concurrency:
   group: '${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == ''main'' && github.run_id || github.ref_name }}'
   cancel-in-progress: true
