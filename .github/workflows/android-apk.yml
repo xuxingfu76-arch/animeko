@@ -49,6 +49,27 @@ jobs:
           sudo mkswap /swapfile
           sudo swapon /swapfile
 
+      - name: Restore keystore material
+        if: inputs.build_type == 'release'
+        shell: bash
+        env:
+          STOREFILE_B64: ${{ secrets.SIGNING_RELEASE_STOREFILE }}
+          STORE_PWD: ${{ secrets.SIGNING_RELEASE_STOREPASSWORD }}
+          KEY_ALIAS: ${{ secrets.SIGNING_RELEASE_KEYALIAS }}
+          KEY_PWD: ${{ secrets.SIGNING_RELEASE_KEYPASSWORD }}
+        run: |-
+          set -euo pipefail
+          umask 077
+          printf '%s' "$STOREFILE_B64" | base64 -d > signing/ap-release.jks
+          # 生成 local.properties: Gradle 从 project property 读取签名配置
+          {
+            echo "signing_release_storeFileFromRoot=signing/ap-release.jks"
+            echo "signing_release_storePassword=$STORE_PWD"
+            echo "signing_release_keyAlias=$KEY_ALIAS"
+            echo "signing_release_keyPassword=$KEY_PWD"
+          } >> local-sign.properties
+          cat local-sign.properties | sed -E 's/(assword)=.*/\1=***/'
+
       - name: Write local.properties
         run: |-
           rm -f local.properties
@@ -59,6 +80,9 @@ jobs:
             echo "kotlin.native.ignoreDisabledTargets=true"
             echo "android.useAndroidX=true"
           } >> local.properties
+          if [ "${{ inputs.build_type }}" = "release" ]; then
+            cat local-sign.properties >> local.properties
+          fi
           cat local.properties
 
       - name: Download JBR 21 (JCEF)
