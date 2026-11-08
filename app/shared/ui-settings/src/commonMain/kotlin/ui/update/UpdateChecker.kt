@@ -21,6 +21,7 @@ import me.him188.ani.app.data.network.protocol.ReleaseClass
 import me.him188.ani.app.data.network.protocol.ReleaseUpdatesDetailedResponse
 import me.him188.ani.app.platform.currentAniBuildConfig
 import me.him188.ani.app.tools.TimeFormatter
+import me.him188.ani.app.ui.profile.update.Release
 import me.him188.ani.utils.coroutines.withExceptionCollector
 import me.him188.ani.utils.ktor.getPlatformKtorEngine
 import me.him188.ani.utils.logging.error
@@ -50,7 +51,7 @@ class UpdateChecker(
             withExceptionCollector {
                 for (baseUrl in serverUrls) {
                     try {
-                        return client.getVersionFromAniServer(baseUrl, currentVersion, releaseClass).also {
+                        return client.getVersionFromGithubReleases(baseUrl, currentVersion, releaseClass).also {
                             logger.info { "Got latest version from $baseUrl: ${it?.name}" }
                         }
                     } catch (e: CancellationException) {
@@ -68,68 +69,141 @@ class UpdateChecker(
         }
     }
 
-    private suspend fun HttpClient.getVersionFromAniServer(
+    private suspend fun HttpClient.getVersionFromGithubReleases(
         baseUrl: String,
-        currentVersion: String = currentAniBuildConfig.versionName,
+        currentVersion: String,
         releaseClass: ReleaseClass,
     ): NewVersion? {
-//        val versions = get(baseUrl) {
-//            url {
-//                appendPathSegments("v1/updates/incremental")
-//            }
-//            val platform = currentPlatform
-//            parameter("clientVersion", currentAniBuildConfig.versionName)
-//            parameter("clientArch", platform.arch.displayName)
-//            parameter("releaseClass", "beta")
-//        }.bodyAsChannel().toInputStream().use {
-//            json.decodeFromStream(UpdatesIncrementalResponse.serializer(), it)
-//        }.versions
-//
-//        val newestVersion = versions.lastOrNull() ?: return null
-        val updates = get(baseUrl) {
+        val releases = get(baseUrl) {
             url {
-                appendPathSegments("v1/updates/incremental/details")
+                appendPathSegments("repos", GITHUB_REPO, "releases")
             }
-            val platform = currentPlatform()
-            parameter("clientVersion", currentAniBuildConfig.versionName)
-            parameter("clientPlatform", platform.updateClientPlatform())
-            parameter("clientArch", platform.arch.displayName)
-            parameter("releaseClass", releaseClass.name)
+            parameter("per_page", "30")
         }.bodyAsText().let {
-            json.decodeFromString(ReleaseUpdatesDetailedResponse.serializer(), it)
-        }.updates
+            json.decodeFromString(List<Release>.serializer(), it)
+        }
 
-        if (updates.isEmpty()) {
+        val platform = currentPlatform()
+        val clientPlatform = platform.updateClientPlatform()
+        val clientArch = platform.arch.displayName
+
+        val candidates = releases.filter { release ->
+            !release.draft && matchesReleaseClass(release, releaseClass)
+        }
+
+        if (candidates.isEmpty()) {
             return null
         }
 
-        return updates.last().let { latest ->
-            NewVersion(
-                name = latest.version,
-                changelogs = updates.asReversed().asSequence().take(10).filter { it.version != currentVersion }.map {
-                    Changelog(it.version, formatTime(it.publishTime), it.description)
-                }.toList(),
-                downloadUrlAlternatives = latest.downloadUrlAlternatives,
-                publishedAt = formatTime(latest.publishTime),
-            )
+        val relevant = candidates.filter { release ->
+            hasAssetFor(release, clientPlatform, clientArch)
+        }.ifEmpty { candidates }
+
+        val sorted = relevant.sortedWith(
+            compareByDescending<Release> { it.publishTimeEpochSeconds() }
+                .thenByDescending { versionKey(it.tagName) },
+        )
+
+        val latest = sorted.firstOrNull() ?: return null
+        val currentKey = versionKey(currentVersion.trimStart('v'))
+        if (versionKey(latest.tagName.trimStart('v')) <= currentKey) {
+            return null
         }
+
+        val newer = sorted.filter { versionKey(it.tagName.trimStart('v')) > currentKey }
+
+        return NewVersion(
+            name = latest.tagName.removePrefix("v"),
+            changelogs = newer.asSequence()
+                .take(10)
+                .map { Changelog(it.tagName.removePrefix("v"), formatTime(it.publishTimeEpochSeconds()), it.body) }
+                .toList(),
+            downloadUrlAlternatives = assetUrlsFor(latest, clientPlatform, clientArch),
+            publishedAt = formatTime(latest.publishTimeEpochSeconds()),
+        )
+    }
+
+    private fun matchesReleaseClass(release: Release, releaseClass: ReleaseClass): Boolean {
+        val tag = release.tagName
+        val isStable = !tag.contains("-")
+        return when (releaseClass) {
+            ReleaseClass.STABLE -> isStable
+            ReleaseClass.BETA -> true
+            ReleaseClass.ALPHA -> true
+            else -> true
+        }
+    }
+
+    private fun hasAssetFor(release: Release, clientPlatform: String, clientArch: String): Boolean =
+        assetUrlsFor(release, clientPlatform, clientArch).isNotEmpty()
+
+    /**
+     * Android 安装包资产命名规则见 .github/workflows/android-apk.yml:
+     * `animeko-android-<abi>-<buildType>.apk`.
+     * `universal` 包含全部 ABI, 因此任何 arch 都匹配. 未匹配到时返回全部 apk, 让用户自行选择.
+     */
+    private fun assetUrlsFor(release: Release, clientPlatform: String, clientArch: String): List<String> {
+        val apks = release.assets.filter { it.name.endsWith(".apk") }
+        if (apks.isEmpty()) return emptyList()
+        if (clientPlatform != "android" && clientPlatform != "androidtv") {
+            return apks.map { it.browserDownloadUrl }
+        }
+        val exact = apks.filter { it.name.contains("-$clientArch-") || it.name.endsWith("-universal-") || it.name.contains("-universal-") }
+        return exact.ifEmpty { apks }.map { it.browserDownloadUrl }
     }
 
     companion object {
         private val logger = logger<UpdateChecker>()
 
-        val DEFAULT_SERVER_URLS = listOf(
-            "https://danmaku-global.myani.org/",
-            "https://danmaku-cn.myani.org/",
-        )
+        /**
+         * GitHub Releases API 根地址. [GITHUB_REPO] 是 fork 自己的仓库, 远离上游更新通道.
+         */
+        val DEFAULT_SERVER_URLS = listOf("https://api.github.com/")
+
+        private const val GITHUB_REPO = "xuxingfu76-arch/animeko"
+
         private val json = Json {
             ignoreUnknownKeys = true
+        }
+
+        /**
+         * 把 `6.4.0` / `6.4.0-beta02` 之类版本号转成可比较的整数序列.
+         * 预发布段 (alpha/beta/rc) 按 ALPHA=1, BETA=2, RC=3, 正式=4 折算, 保证正式版大于同号预发布版.
+         */
+        internal fun versionKey(version: String): List<Int> {
+            val core = version.substringBefore('-')
+            val pre = version.substringAfter('-', "")
+            val numbers = core.split('.').mapNotNull { it.trim().toIntOrNull() }
+            val preRank = when {
+                pre.isEmpty() -> 4
+                pre.startsWith("rc", ignoreCase = true) -> 3
+                pre.startsWith("beta", ignoreCase = true) -> 2
+                pre.startsWith("alpha", ignoreCase = true) -> 1
+                else -> 1
+            }
+            val preNumber = pre.filter { it.isDigit() }.toIntOrNull() ?: 0
+            return numbers + listOf(preRank, preNumber)
         }
 
         private fun formatTime(
             seconds: Long,
         ): String = kotlin.runCatching { TimeFormatter().format(seconds * 1000) }.getOrElse { seconds.toString() }
     }
+}
+
+/** GitHub 的 `published_at` 是 ISO-8601 字符串, 转成 epoch 秒用于排序与展示. */
+internal fun Release.publishTimeEpochSeconds(): Long {
+    val text = publishedAt
+    if (text.isBlank()) return 0L
+    val parsed = runCatching {
+        java.time.Instant.parse(text).epochSecond
+    }.getOrNull()
+    if (parsed != null) return parsed
+    return runCatching {
+        java.time.LocalDateTime.parse(text)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toEpochSecond()
+    }.getOrNull() ?: 0L
 }
 
 internal fun Platform.updateClientPlatform(): String =
