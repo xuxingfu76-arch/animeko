@@ -16,9 +16,9 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.appendPathSegments
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import me.him188.ani.app.data.network.protocol.ReleaseClass
 import me.him188.ani.app.platform.currentAniBuildConfig
 import me.him188.ani.app.tools.TimeFormatter
@@ -212,18 +212,36 @@ class UpdateChecker(
 }
 
 /** GitHub 的 `published_at` 是 ISO-8601 字符串, 转成 epoch 秒用于排序与展示. */
-internal fun GithubRelease.publishTimeEpochSeconds(): Long {
-    val text = publishedAt
+internal fun GithubRelease.publishTimeEpochSeconds(): Long =
+    parseIso8601ToEpochSeconds(publishedAt)
+
+/**
+ * 解析 GitHub 的时间格式 `2026-10-24T04:52:28Z` (也容忍缺省时区后缀的变体), 按 UTC 计算 epoch 秒.
+ * 不依赖 `java.time`, 以便在 KMP 的各个目标上编译.
+ */
+internal fun parseIso8601ToEpochSeconds(text: String): Long {
     if (text.isBlank()) return 0L
-    val parsed = runCatching {
-        java.time.Instant.parse(text).epochSecond
-    }.getOrNull()
-    if (parsed != null) return parsed
-    return runCatching {
-        java.time.LocalDateTime.parse(text)
-            .atZone(java.time.ZoneId.systemDefault())
-            .toEpochSecond()
-    }.getOrNull() ?: 0L
+    val datePart = text.substringBefore('T')
+    val timePart = text.substringAfter('T', "00:00:00").substringBefore('Z').substringBefore('+').substringBefore('.')
+    val (year, month, day) = datePart.split('-').mapNotNull { it.trim().toIntOrNull() }
+        .let { parts ->
+            if (parts.size >= 3) Triple(parts[0], parts[1], parts[2]) else return 0L
+        }
+    val timeParts = timePart.split(':').mapNotNull { it.trim().toIntOrNull() }
+    val hour = timeParts.getOrElse(0) { 0 }
+    val minute = timeParts.getOrElse(1) { 0 }
+    val second = timeParts.getOrElse(2) { 0 }
+    if (month !in 1..12 || day !in 1..31 || hour !in 0..23 || minute !in 0..59 || second !in 0..60) {
+        return 0L
+    }
+    // days from 1970-01-01, proleptic Gregorian calendar
+    val y = if (month <= 2) year - 1 else year
+    val era = (if (y >= 0) y else y - 399) / 400
+    val yoe = y - era * 400
+    val doy = (153 * (if (month > 2) month - 3 else month + 9) + 2) / 5 + day - 1
+    val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+    val days = era * 146097 + doe - 719468
+    return days * 86_400L + hour * 3_600L + minute * 60L + second
 }
 
 internal fun Platform.updateClientPlatform(): String =
