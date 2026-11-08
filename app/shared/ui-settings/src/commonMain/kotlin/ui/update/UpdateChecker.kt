@@ -17,10 +17,11 @@ import io.ktor.http.appendPathSegments
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import me.him188.ani.app.data.network.protocol.ReleaseClass
 import me.him188.ani.app.platform.currentAniBuildConfig
 import me.him188.ani.app.tools.TimeFormatter
-import me.him188.ani.app.ui.profile.update.Release
 import me.him188.ani.utils.coroutines.withExceptionCollector
 import me.him188.ani.utils.ktor.getPlatformKtorEngine
 import me.him188.ani.utils.logging.error
@@ -29,6 +30,26 @@ import me.him188.ani.utils.logging.logger
 import me.him188.ani.utils.platform.Platform
 import me.him188.ani.utils.platform.currentPlatform
 import me.him188.ani.utils.platform.isAndroidTv
+
+/**
+ * GitHub Releases API 返回的最小字段集. 只取本仓库更新检测需要的部分.
+ */
+@Serializable
+private data class GithubRelease(
+    @SerialName("tag_name") val tagName: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("body") val body: String = "",
+    @SerialName("draft") val draft: Boolean = false,
+    @SerialName("prerelease") val prerelease: Boolean = false,
+    @SerialName("published_at") val publishedAt: String = "",
+    @SerialName("assets") val assets: List<GithubAsset> = emptyList(),
+)
+
+@Serializable
+private data class GithubAsset(
+    @SerialName("name") val name: String = "",
+    @SerialName("browser_download_url") val browserDownloadUrl: String = "",
+)
 
 /**
  * @param serverUrls 版本 API 的服务器, 按顺序尝试, 前一个失败才用下一个. 端到端测试用它指向本机 mock 的服务器.
@@ -79,7 +100,7 @@ class UpdateChecker(
             }
             parameter("per_page", "30")
         }.bodyAsText().let {
-            json.decodeFromString(List<Release>.serializer(), it)
+            json.decodeFromString(List<GithubRelease>.serializer(), it)
         }
 
         val platform = currentPlatform()
@@ -122,7 +143,7 @@ class UpdateChecker(
         )
     }
 
-    private fun matchesReleaseClass(release: Release, releaseClass: ReleaseClass): Boolean {
+    private fun matchesReleaseClass(release: GithubRelease, releaseClass: ReleaseClass): Boolean {
         val tag = release.tagName
         val isStable = !tag.contains("-")
         return when (releaseClass) {
@@ -133,7 +154,7 @@ class UpdateChecker(
         }
     }
 
-    private fun hasAssetFor(release: Release, clientPlatform: String, clientArch: String): Boolean =
+    private fun hasAssetFor(release: GithubRelease, clientPlatform: String, clientArch: String): Boolean =
         assetUrlsFor(release, clientPlatform, clientArch).isNotEmpty()
 
     /**
@@ -141,7 +162,7 @@ class UpdateChecker(
      * `animeko-android-<abi>-<buildType>.apk`.
      * `universal` 包含全部 ABI, 因此任何 arch 都匹配. 未匹配到时返回全部 apk, 让用户自行选择.
      */
-    private fun assetUrlsFor(release: Release, clientPlatform: String, clientArch: String): List<String> {
+    private fun assetUrlsFor(release: GithubRelease, clientPlatform: String, clientArch: String): List<String> {
         val apks = release.assets.filter { it.name.endsWith(".apk") }
         if (apks.isEmpty()) return emptyList()
         if (clientPlatform != "android" && clientPlatform != "androidtv") {
@@ -191,7 +212,7 @@ class UpdateChecker(
 }
 
 /** GitHub 的 `published_at` 是 ISO-8601 字符串, 转成 epoch 秒用于排序与展示. */
-internal fun Release.publishTimeEpochSeconds(): Long {
+internal fun GithubRelease.publishTimeEpochSeconds(): Long {
     val text = publishedAt
     if (text.isBlank()) return 0L
     val parsed = runCatching {
