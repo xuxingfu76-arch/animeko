@@ -74,6 +74,7 @@ jobs:
           cat local.properties
 
       - name: Download JBR 21 (JCEF)
+        id: download-jbr
         env:
           RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
           JBR_URL: https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk_jcef-21.0.11-linux-x64-b1163.116.tar.gz
