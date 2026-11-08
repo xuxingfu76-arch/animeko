@@ -1,6 +1,7 @@
 name: Build Android APK
 
 on:
+  # 只保留手动触发: 自动推送会因频繁提交被 concurrency 取消, 导致永远跑不到产物步骤.
   workflow_dispatch:
     inputs:
       build_type:
@@ -16,17 +17,6 @@ on:
         required: true
         default: 'arm64-v8a'
         type: string
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'app/android/**'
-      - 'app/shared/**'
-      - 'build-logic/**'
-      - 'gradle/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - '.github/workflows/android-apk.yml'
   pull_request:
     branches: [ "main" ]
 
