@@ -125,28 +125,24 @@ jobs:
           set -euo pipefail
           mkdir -p apk-out
           BUILD_TYPE="${{ inputs.build_type == 'release' && 'release' || 'debug' }}"
-          ABI_INPUT="${{ inputs.abis || 'arm64-v8a' }}"
-          if [ "$ABI_INPUT" = "all" ]; then
-            ABIS="arm64-v8a armeabi-v7a x86_64 universal"
-          else
-            ABIS="$ABI_INPUT universal"
-          fi
-          found=0
-          for abi in $ABIS; do
-            src="app/android/build/outputs/apk/default/$BUILD_TYPE/android-default-${abi}-${BUILD_TYPE}.apk"
-            if [ -f "$src" ]; then
-              cp "$src" "apk-out/animeko-android-${abi}-${BUILD_TYPE}.apk"
-              echo "collected: animeko-android-${abi}-${BUILD_TYPE}.apk"
-              found=1
-            else
-              echo "missing: $src"
-            fi
+          DIR="app/android/build/outputs/apk/default/$BUILD_TYPE"
+          # 不同 splits / universal 配置下产物文件名不一致, 直接按目录收集全部 apk
+          shopt -s nullglob
+          count=0
+          for src in "$DIR"/*.apk; do
+            [ -f "$src" ] || continue
+            base="$(basename "$src")"
+            cp "$src" "apk-out/$base"
+            echo "collected: $base ($(du -h "$src" | cut -f1))"
+            count=$((count+1))
           done
-          if [ "$found" -eq 0 ]; then
-            echo "No APK produced" >&2
-            ls -R app/android/build/outputs/apk 2>/dev/null || true
+          shopt -u nullglob
+          if [ "$count" -eq 0 ]; then
+            echo "No APK produced in $DIR" >&2
+            ls -R "app/android/build/outputs" 2>/dev/null || true
             exit 1
           fi
+          echo "total apks: $count"
           ls -lh apk-out
 
       - name: Upload APKs
