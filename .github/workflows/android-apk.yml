@@ -1,0 +1,143 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Debug (免签名) 或 Release (需签名 secrets)'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+      abis:
+        description: '要构建的 ABI (all = arm64-v8a + armeabi-v7a + x86_64)'
+        required: true
+        default: 'arm64-v8a'
+        type: string
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'app/android/**'
+      - 'app/shared/**'
+      - 'build-logic/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Android APK (${{ inputs.build_type || 'debug' }})
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          android: false
+          large-packages: false
+          tool-cache: false
+
+      - name: Enable swap
+        run: |-
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+
+      - name: Write local.properties
+        run: |-
+          rm -f local.properties
+          {
+            echo "jvm.toolchain.version=21"
+            echo "jvm.toolchain.vendor=jetbrains"
+            echo "ani.android.abis=${{ inputs.abis || 'arm64-v8a' }}"
+            echo "kotlin.native.ignoreDisabledTargets=true"
+            echo "android.useAndroidX=true"
+          } >> local.properties
+          cat local.properties
+
+      - name: Download JBR 21 (JCEF)
+        env:
+          RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
+          JBR_URL: https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk_jcef-21.0.11-linux-x64-b1163.116.tar.gz
+          JBR_CHECKSUM_URL: https://cache-redirector.jetbrains.com/intellij-jbr/jbrsdk_jcef-21.0.11-linux-x64-b1163.116.tar.gz.checksum
+        shell: bash
+        run: python .github/workflows/download_jbr.py
+
+      - name: Set up JDK 21 (JBR)
+        uses: gmitch215/setup-java@6d2c5e1f82f180ae79f799f0ed6e3e5efb4e664d
+        with:
+          java-version: '21'
+          distribution: 'jdkfile'
+          jdkFile: ${{ steps.download-jbr.outputs.jbrLocation }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build APK
+        id: gradle
+        timeout-minutes: 180
+        run: >-
+          ./gradlew
+          "assemble${{ inputs.build_type == 'release' && 'DefaultRelease' || 'DefaultDebug' }}"
+          --no-daemon
+          --stacktrace
+          "-Dfile.encoding=UTF-8"
+          "-Dorg.gradle.jvmargs=-Xmx8g -Dkotlin.daemon.jvm.options=-Xmx6g"
+
+      - name: Collect APKs
+        shell: bash
+        run: |-
+          set -euo pipefail
+          mkdir -p apk-out
+          BUILD_TYPE="${{ inputs.build_type == 'release' && 'release' || 'debug' }}"
+          ABI_INPUT="${{ inputs.abis || 'arm64-v8a' }}"
+          if [ "$ABI_INPUT" = "all" ]; then
+            ABIS="arm64-v8a armeabi-v7a x86_64 universal"
+          else
+            ABIS="$ABI_INPUT universal"
+          fi
+          found=0
+          for abi in $ABIS; do
+            src="app/android/build/outputs/apk/default/$BUILD_TYPE/android-default-${abi}-${BUILD_TYPE}.apk"
+            if [ -f "$src" ]; then
+              cp "$src" "apk-out/animeko-android-${abi}-${BUILD_TYPE}.apk"
+              echo "collected: animeko-android-${abi}-${BUILD_TYPE}.apk"
+              found=1
+            else
+              echo "missing: $src"
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "No APK produced" >&2
+            ls -R app/android/build/outputs/apk 2>/dev/null || true
+            exit 1
+          fi
+          ls -lh apk-out
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: animeko-android-apk-${{ inputs.build_type || 'debug' }}-${{ inputs.abis || 'arm64-v8a' }}
+          path: apk-out/*.apk
+          if-no-files-found: error
+          retention-days: 14
