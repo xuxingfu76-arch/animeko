@@ -17,8 +17,6 @@ on:
         required: true
         default: 'arm64-v8a'
         type: string
-  pull_request:
-    branches: [ "main" ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
