@@ -78,7 +78,10 @@ jobs:
           {
             echo "jvm.toolchain.version=21"
             echo "jvm.toolchain.vendor=jetbrains"
-            echo "ani.android.abis=${{ inputs.abis || 'arm64-v8a' }}"
+            # 项目只认 all / 具体 ABI 名; universal 不是合法值, 映射为 all (= arm64+armeabi+x86_64)
+            ABI_RAW="${{ inputs.abis || 'arm64-v8a' }}"
+            if [ "$ABI_RAW" = "universal" ]; then ABI_RAW=all; fi
+            echo "ani.android.abis=$ABI_RAW"
             echo "kotlin.native.ignoreDisabledTargets=true"
             echo "android.useAndroidX=true"
           } >> local.properties
