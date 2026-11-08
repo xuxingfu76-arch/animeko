@@ -60,7 +60,9 @@ jobs:
         run: |-
           set -euo pipefail
           umask 077
+          mkdir -p signing
           printf '%s' "$STOREFILE_B64" | base64 -d > signing/ap-release.jks
+          test -s signing/ap-release.jks
           # 生成 local.properties: Gradle 从 project property 读取签名配置
           {
             echo "signing_release_storeFileFromRoot=signing/ap-release.jks"
@@ -83,7 +85,7 @@ jobs:
           if [ "${{ inputs.build_type }}" = "release" ]; then
             cat local-sign.properties >> local.properties
           fi
-          cat local.properties
+          sed -E 's/(asswor[dt]?) =.*/\1 = ***/' local.properties
 
       - name: Download JBR 21 (JCEF)
         id: download-jbr
