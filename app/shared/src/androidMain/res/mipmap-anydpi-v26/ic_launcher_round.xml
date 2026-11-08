@@ -1,15 +1,13 @@
-PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz48IS0tCiAg
-fiBDb3B5cmlnaHQgKEMpIDIwMjQtMjAyNSBPcGVuQW5pIGFuZCBjb250cmli
-dXRvcnMuCiAgfgogIH4g5q2k5rqQ5Luj56CB55qE5L2/55So5Y+XIEdOVSBB
-RkZFUk8gR0VORVJBTCBQVUJMSUMgTElDRU5TRSB2ZXJzaW9uIDMg6K645Y+v
-6K+B55qE57qm5p2fLCDlj6/ku6XlnKjku6XkuIvpk77mjqXmib7liLDor6Xo
-rrjlj6/or4EuCiAgfiBVc2Ugb2YgdGhpcyBzb3VyY2UgY29kZSBpcyBnb3Zl
-cm5lZCBieSB0aGUgR05VIEFHUEx2MyBsaWNlbnNlLCB3aGljaCBjYW4gYmUg
-Zm91bmQgYXQgdGhlIGZvbGxvd2luZyBsaW5rLgogIH4KICB+IGh0dHBzOi8v
-Z2l0aHViLmNvbS9vcGVuLWFuaS9hbmkvYmxvYi9tYWluL0xJQ0VOU0UKICAt
-LT4KCjxhZGFwdGl2ZS1pY29uIHhtbG5zOmFuZHJvaWQ9Imh0dHA6Ly9zY2hl
-bWFzLmFuZHJvaWQuY29tL2Fway9yZXMvYW5kcm9pZCI+CiAgICA8YmFja2dy
-b3VuZCBhbmRyb2lkOmRyYXdhYmxlPSJAZHJhd2FibGUvaWNfbGF1bmNoZXJf
-YmFja2dyb3VuZCIgLz4KICAgIDxmb3JlZ3JvdW5kIGFuZHJvaWQ6ZHJhd2Fi
-bGU9IkBkcmF3YWJsZS9pY19sYXVuY2hlcl9mb3JlZ3JvdW5kIiAvPgo8L2Fk
-YXB0aXZlLWljb24+
+<?xml version="1.0" encoding="utf-8"?><!--
+  ~ Copyright (C) 2024-2025 OpenAni and contributors.
+  ~
+  ~ 此源代码的使用受 GNU AFFERO GENERAL PUBLIC LICENSE version 3 许可证的约束, 可以在以下链接找到该许可证.
+  ~ Use of this source code is governed by the GNU AGPLv3 license, which can be found at the following link.
+  ~
+  ~ https://github.com/open-ani/ani/blob/main/LICENSE
+  -->
+
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+</adaptive-icon>
