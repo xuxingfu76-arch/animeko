@@ -120,7 +120,7 @@ class UpdateChecker(
         }.ifEmpty { candidates }
 
         val sorted = relevant.sortedWith(
-            compareByDescending<Release> { it.publishTimeEpochSeconds() }
+            compareByDescending<GithubRelease> { it.publishTimeEpochSeconds() }
                 .thenByDescending { versionKey(it.tagName) },
         )
 
