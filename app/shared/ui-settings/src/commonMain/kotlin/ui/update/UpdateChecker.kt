@@ -17,6 +17,7 @@ import io.ktor.http.appendPathSegments
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import me.him188.ani.app.data.network.protocol.ReleaseClass
@@ -100,7 +101,7 @@ class UpdateChecker(
             }
             parameter("per_page", "30")
         }.bodyAsText().let {
-            json.decodeFromString(List<GithubRelease>.serializer(), it)
+            json.decodeFromString(ListSerializer(GithubRelease.serializer()), it)
         }
 
         val platform = currentPlatform()
@@ -121,16 +122,16 @@ class UpdateChecker(
 
         val sorted = relevant.sortedWith(
             compareByDescending<GithubRelease> { it.publishTimeEpochSeconds() }
-                .thenByDescending { versionKey(it.tagName) },
+                .thenByDescending { versionSortKey(it.tagName) },
         )
 
         val latest = sorted.firstOrNull() ?: return null
-        val currentKey = versionKey(currentVersion.trimStart('v'))
-        if (versionKey(latest.tagName.trimStart('v')) <= currentKey) {
+        val currentKey = versionSortKey(currentVersion.trimStart('v'))
+        if (versionSortKey(latest.tagName.trimStart('v')) <= currentKey) {
             return null
         }
 
-        val newer = sorted.filter { versionKey(it.tagName.trimStart('v')) > currentKey }
+        val newer = sorted.filter { versionSortKey(it.tagName.trimStart('v')) > currentKey }
 
         return NewVersion(
             name = latest.tagName.removePrefix("v"),
@@ -205,6 +206,13 @@ class UpdateChecker(
             return numbers + listOf(preRank, preNumber)
         }
 
+        /**
+         * [versionKey] 的定宽字符串形式, 可按字典序比较顺序.
+         * Comparable 选择器要求返回可比较类型, List<Int> 不满足, 所以转成定宽字符串.
+         */
+        internal fun versionSortKey(version: String): String =
+            versionKey(version).joinToString(".") { it.toString().padStart(8, '0') }
+
         private fun formatTime(
             seconds: Long,
         ): String = kotlin.runCatching { TimeFormatter().format(seconds * 1000) }.getOrElse { seconds.toString() }
@@ -212,7 +220,7 @@ class UpdateChecker(
 }
 
 /** GitHub 的 `published_at` 是 ISO-8601 字符串, 转成 epoch 秒用于排序与展示. */
-internal fun GithubRelease.publishTimeEpochSeconds(): Long =
+private fun GithubRelease.publishTimeEpochSeconds(): Long =
     parseIso8601ToEpochSeconds(publishedAt)
 
 /**
