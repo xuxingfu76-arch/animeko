@@ -28,6 +28,15 @@ class SubjectRecommendation(
 }
 
 /**
+ * 该条目是否为服务端推荐的番剧.
+ *
+ * 服务端会在同一接口混入外部推广条目 (点击后跳转浏览器打开 [SubjectRecommendation.uri]),
+ * 其特征是没有 [SubjectRecommendation.subjectId] 且带有 [SubjectRecommendation.uri].
+ */
+val SubjectRecommendation.isSubjectRecommendation: Boolean
+    get() = subjectId?.takeIf { it > 0 } != null && uri == null
+
+/**
  * 根据用户偏好选择的显示名称, 与 [subjectPreferredDisplayName] 同一约定.
  * @param useOriginalTitle 为 `true` 时优先显示原名 ([SubjectRecommendation.name]).
  */
@@ -55,5 +64,6 @@ class GetSubjectRecommendationUseCaseImpl(private val service: SubjectService) :
                 uri = it.uri,
             )
         }
+            .filter { it.isSubjectRecommendation }
     }
 }
