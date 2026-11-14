@@ -24,11 +24,11 @@ import me.him188.ani.app.ui.lang.settings_help_website
 import org.jetbrains.compose.resources.stringResource
 
 object AniHelperDestination {
-    const val GITHUB_HOME = "https://github.com/open-ani/animeko"
-    const val GITHUB_CONTRIBUTORS = "https://github.com/open-ani/animeko/graphs/contributors"
-    const val ANI_WEBSITE = "https://myani.org"
-    const val ISSUE_TRACKER = "https://github.com/open-ani/animeko/issues"
-    const val RELEASE_PREFIX = "https://github.com/open-ani/animeko/releases/tag/v"
+    const val GITHUB_HOME = "https://github.com/xuxingfu76-arch/animeko"
+    const val GITHUB_CONTRIBUTORS = "https://github.com/xuxingfu76-arch/animeko/graphs/contributors"
+    const val ANI_WEBSITE = "https://github.com/xuxingfu76-arch/animeko"
+    const val ISSUE_TRACKER = "https://github.com/xuxingfu76-arch/animeko/issues"
+    const val RELEASE_PREFIX = "https://github.com/xuxingfu76-arch/animeko/releases/tag/v"
 
     const val GITHUB_REPO = "https://github.com/him188/ani"
     const val BANGUMI = "https://bangumi.tv"
