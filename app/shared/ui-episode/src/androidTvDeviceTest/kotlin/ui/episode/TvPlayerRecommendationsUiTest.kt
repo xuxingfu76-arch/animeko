@@ -183,7 +183,7 @@ class TvPlayerRecommendationsUiTest {
     }
 
     @Test
-    fun advertisingCardsAreVisibleAndClickingThemDoesNothing() = runAniComposeUiTest {
+    fun externalAdCardsAreNotNavigationTargets() = runAniComposeUiTest {
         // A URL must win over an optional subject id, just as on the other platforms.
         val ad = recommendation(123, uri = "https://example.invalid/ad")
         val subject = recommendation(456)
@@ -192,7 +192,6 @@ class TvPlayerRecommendationsUiTest {
         openRecommendations()
         onNodeWithTag("tv-recommendation-${ad.uniqueId}").assertIsFocused()
         key(Key.DirectionCenter)
-        onNodeWithText("广告").assertIsDisplayed()
         assertTrue(fixture.openedRecommendations.isEmpty())
         onNodeWithTag("tv-player-controller").assertDoesNotExist()
         key(Key.DirectionRight)

@@ -11,6 +11,8 @@ package me.him188.ani.app.domain.episode
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * @see me.him188.ani.app.domain.episode.SubjectRecommendation
@@ -48,5 +50,39 @@ class SubjectRecommendationTest {
     fun `preferredDisplayName_with_useOriginalTitleFalse_falls_back_to_name_when_nameCn_is_null_or_blank`() {
         assertEquals("進撃の巨人", recommendation(name = "進撃の巨人", nameCn = null).preferredDisplayName(useOriginalTitle = false))
         assertEquals("進撃の巨人", recommendation(name = "進撃の巨人", nameCn = "").preferredDisplayName(useOriginalTitle = false))
+    }
+
+    @Test
+    fun isSubjectRecommendation_is_true_for_an_in_app_subject() {
+        assertTrue(recommendation(name = "進撃の巨人", nameCn = null).isSubjectRecommendation)
+    }
+
+    @Test
+    fun isSubjectRecommendation_is_false_for_an_external_ad() {
+        assertFalse(
+            SubjectRecommendation(
+                subjectId = null,
+                name = "某游戏",
+                nameCn = "某游戏",
+                desc1 = "",
+                desc2 = "广告",
+                imageUrl = "",
+                uri = "https://example.invalid/ad",
+            ).isSubjectRecommendation,
+        )
+    }
+
+    @Test
+    fun isSubjectRecommendation_is_false_without_a_subject_id() {
+        val item = SubjectRecommendation(
+            subjectId = null,
+            name = "无 id 条目",
+            nameCn = "无 id 条目",
+            desc1 = "",
+            desc2 = "2026 年 9 月",
+            imageUrl = "",
+            uri = null,
+        )
+        assertFalse(item.isSubjectRecommendation)
     }
 }
