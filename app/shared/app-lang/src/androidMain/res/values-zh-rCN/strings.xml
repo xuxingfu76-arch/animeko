@@ -205,8 +205,8 @@
     <string name="settings_about_feedback">反馈建议</string>
     <string name="settings_about_source_code">源代码</string>
     <string name="settings_about_chat_groups">交流群</string>
-    <string name="settings_about_icon_description">Animeko Icon</string>
-    <string name="settings_about_app_name">Animeko</string>
+    <string name="settings_about_icon_description">AP Icon</string>
+    <string name="settings_about_app_name">AP</string>
     <string name="settings_about_app_description">集找番、追番、看番的一站式弹幕追番平台</string>
     <string name="settings_about_build_info">构建信息</string>
     <string name="settings_build_info_branch">分支</string>
