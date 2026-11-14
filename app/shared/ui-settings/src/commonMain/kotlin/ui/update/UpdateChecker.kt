@@ -13,7 +13,6 @@ import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.appendPathSegments
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
 import kotlinx.serialization.SerialName
@@ -95,10 +94,7 @@ class UpdateChecker(
         currentVersion: String,
         releaseClass: ReleaseClass,
     ): NewVersion? {
-        val releases = get(baseUrl) {
-            url {
-                appendPathSegments("repos", GITHUB_REPO, "releases")
-            }
+        val releases = get("$baseUrl/repos/$GITHUB_REPO/releases") {
             parameter("per_page", "30")
         }.bodyAsText().let {
             json.decodeFromString(ListSerializer(GithubRelease.serializer()), it)
@@ -113,6 +109,7 @@ class UpdateChecker(
         }
 
         if (candidates.isEmpty()) {
+            logger.info { "No release candidates found in $GITHUB_REPO" }
             return null
         }
 
