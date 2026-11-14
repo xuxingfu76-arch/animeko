@@ -205,8 +205,8 @@
     <string name="settings_about_feedback">Feedback &amp; suggestions</string>
     <string name="settings_about_source_code">Source code</string>
     <string name="settings_about_chat_groups">Chat groups</string>
-    <string name="settings_about_icon_description">Animeko Icon</string>
-    <string name="settings_about_app_name">Animeko</string>
+    <string name="settings_about_icon_description">AP Icon</string>
+    <string name="settings_about_app_name">AP</string>
     <string name="settings_about_app_description">A one-stop platform for searching, following, and watching anime with bullet comments</string>
     <string name="settings_about_build_info">Build info</string>
     <string name="settings_build_info_branch">Branch</string>
