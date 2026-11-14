@@ -148,6 +148,21 @@ jobs:
           echo "total apks: $count"
           ls -lh apk-out
 
+      - name: Create Release
+        if: inputs.build_type == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v6.4.0
+          name: AP v6.4.0
+          body: |
+            AP 6.4.0
+
+            改动: 去除相关推荐外部推广条目, 更新检测指向本仓库, 应用名与图标定制.
+          files: apk-out/*.apk
+          draft: false
+          prerelease: false
+          make_latest: true
+
       - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
